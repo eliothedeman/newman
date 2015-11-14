@@ -8,11 +8,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-type ConnOption uint64
-
 const (
-	DefaultBufferSize            = 1024 * 100 // 100k
-	Compression       ConnOption = 1 << iota
+	DefaultBufferSize        = 1024 * 100 // 100k
+	Compression       uint64 = 1 << iota
 	Encrypted
 )
 
@@ -36,12 +34,12 @@ type Conn struct {
 	buff         []byte
 	nextSizeBuff []byte
 	rwc          io.ReadWriteCloser
-	options      ConnOption
+	options      uint64
 	ctx          context.Context
 }
 
 // NewConn returns a new Conn with the appropriate configuration
-func NewConn(rwc io.ReadWriteCloser, options ...ConnOption) *Conn {
+func NewConn(rwc io.ReadWriteCloser, options ...uint64) *Conn {
 	c := &Conn{
 		buff:         make([]byte, DefaultBufferSize),
 		nextSizeBuff: make([]byte, 8),
