@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 type ConnOption uint64
@@ -26,9 +28,7 @@ func (n *NoopCloser) Close() error {
 
 // WrapNoopCloser wraps a io.ReadWriter in a io.ReadWriteCloser that does nothing on "Close"
 func WrapNoopCloser(rw io.ReadWriter) io.ReadWriteCloser {
-	return &NoopCloser{
-		ReadWriter: rw,
-	}
+	return &NoopCloser{rw}
 }
 
 // Conn provides a wrapper around an io.ReadWriteCloser for sending size delimited data over any reader/writer
@@ -37,6 +37,7 @@ type Conn struct {
 	nextSizeBuff []byte
 	rwc          io.ReadWriteCloser
 	options      ConnOption
+	ctx          context.Context
 }
 
 // NewConn returns a new Conn with the appropriate configuration
@@ -45,6 +46,7 @@ func NewConn(rwc io.ReadWriteCloser, options ...ConnOption) *Conn {
 		buff:         make([]byte, DefaultBufferSize),
 		nextSizeBuff: make([]byte, 8),
 		rwc:          rwc,
+		ctx:          context.Background(),
 	}
 
 	// assign all options
@@ -64,8 +66,7 @@ func (c *Conn) Write(m Message) error {
 	}
 
 	// write out the message on the connection
-	c.writeNextBuffer(buff)
-	return nil
+	return c.writeNextBuffer(buff)
 }
 
 // Next reads the next message off the line and unmarshals it into the given message
@@ -83,13 +84,14 @@ func (c *Conn) Next(m Message) error {
 
 // Generate returns a channel that will recieve messages as they come in off the line
 // Only safe to run once per Conn
-func (c *Conn) Generate(f MessageFactory) (<-chan Message, chan<- struct{}) {
+func (c *Conn) Generate(f func() Message) (<-chan Message, context.CancelFunc) {
 
 	// output channel
 	out := make(chan Message, 10)
 
-	// stop channel
-	stop := make(chan struct{})
+	// set up the context to cancel the generation
+	ctx, stop := context.WithCancel(c.ctx)
+	c.ctx = ctx
 
 	// read messages as they come off the line and send them on the output channel
 	go func() {
@@ -101,9 +103,8 @@ func (c *Conn) Generate(f MessageFactory) (<-chan Message, chan<- struct{}) {
 			select {
 
 			// check to see if the generation should be stopped
-			case <-stop:
+			case <-c.ctx.Done():
 				close(out)
-				close(stop)
 				return
 
 			default:
@@ -115,7 +116,6 @@ func (c *Conn) Generate(f MessageFactory) (<-chan Message, chan<- struct{}) {
 				if err != nil {
 					// close the out put channel and return
 					close(out)
-					close(stop)
 					return
 				}
 

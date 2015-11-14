@@ -2,6 +2,7 @@ package newman
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -55,5 +56,34 @@ func TestWriteNext(t *testing.T) {
 	if *m != "hello world" {
 		t.Fatal(m, "hello world")
 	}
+
+}
+
+func TestGenerate(t *testing.T) {
+	in := NewConn(WrapNoopCloser(bytes.NewBuffer(nil)))
+	out := NewConn(in.rwc)
+
+	go func() {
+		// write out 1000 messages
+		for i := 0; i < 1000; i++ {
+			err := in.Write(newTestMessage(fmt.Sprintf("hello world %d", i)))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+
+	i := 0
+	c, d := out.Generate(func() Message {
+		return newTestMessage("")
+	})
+
+	for m := range c {
+		if string(*m.(*testMessage)) != fmt.Sprintf("hello world %d", i) {
+			t.Fatal()
+		}
+	}
+
+	d()
 
 }
