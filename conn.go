@@ -34,22 +34,16 @@ type Conn struct {
 	buff         []byte
 	nextSizeBuff []byte
 	rwc          io.ReadWriteCloser
-	options      uint64
 	ctx          context.Context
 }
 
 // NewConn returns a new Conn with the appropriate configuration
-func NewConn(rwc io.ReadWriteCloser, options ...uint64) *Conn {
+func NewConn(rwc io.ReadWriteCloser) *Conn {
 	c := &Conn{
 		buff:         make([]byte, DefaultBufferSize),
 		nextSizeBuff: make([]byte, 8),
 		rwc:          rwc,
 		ctx:          context.Background(),
-	}
-
-	// assign all options
-	for _, o := range options {
-		c.options |= o
 	}
 
 	return c
