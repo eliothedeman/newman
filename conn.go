@@ -9,9 +9,7 @@ import (
 )
 
 const (
-	DefaultBufferSize        = 1024 * 100 // 100k
-	Compression       uint64 = 1 << iota
-	Encrypted
+	DefaultBufferSize = 1024 * 100 // 100k
 )
 
 // NoopCloser io.ReadWriteCloser has a noop for "Close"
