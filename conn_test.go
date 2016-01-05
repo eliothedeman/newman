@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+
+	"github.com/eliothedeman/randutil"
 )
 
 func TestNewConn(t *testing.T) {
@@ -84,5 +86,32 @@ func TestGenerate(t *testing.T) {
 	}
 
 	d()
+}
+
+func TestMany(t *testing.T) {
+	in := NewConn(WrapNoopCloser(bytes.NewBuffer(nil)))
+	in.SetWaiter(&Backoff{})
+	out := NewConn(in.rwc)
+	out.SetWaiter(&Backoff{})
+
+	for i := 0; i < 10000; i++ {
+		m := newTestMessage(randutil.String(randutil.IntRange(10, 100), randutil.Ascii))
+		err := in.Write(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		n := newTestMessage("")
+
+		err = out.Next(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if *m != *n {
+			t.Fatal(*m, *n)
+		}
+
+	}
 
 }
